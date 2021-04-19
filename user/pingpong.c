@@ -1,8 +1,6 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-#define BUF_SIZE 16
-
 int
 main(void)
 {
@@ -10,39 +8,38 @@ main(void)
     int p2c[2];
     pipe(c2p);
     pipe(p2c);
-    uint8 buf[BUF_SIZE];
-    int pid = fork();
+    uint32 buf;
 
-    if (pid == 0)
-    {
-        close(c2p[0]);
-        close(p2c[1]);
-        int i = read(p2c[0], buf, BUF_SIZE);
-
-        if (i > 0)
-        {
-            fprintf(1, "%d: received ping\n", getpid());
-            write(c2p[1], "hello!", 6);
-        }
-
-        close(c2p[1]);
-        close(p2c[0]);
-    }
-    else
+    if (fork()) // Parent
     {
         close(c2p[1]);
         close(p2c[0]);
-        write(p2c[1], "hello!", 6);
-        int i = read(c2p[0], buf, BUF_SIZE);
+        write(p2c[1], "ping", 4);
+        int i = read(c2p[0], ((uint8 *)&buf), 4);
 
-        if (i > 0)
+        if (i == 4 && ((uint8 *)&buf)[0] == 'p' && ((uint8 *)&buf)[1] == 'o' && ((uint8 *)&buf)[2] == 'n' && ((uint8 *)&buf)[3] == 'g')
         {
             fprintf(1, "%d: received pong\n", getpid());
         }
 
         close(c2p[0]);
         close(p2c[1]);
-        wait(&pid);
+        wait(0);
+    }
+    else // Child
+    {
+        close(c2p[0]);
+        close(p2c[1]);
+        int i = read(p2c[0], ((uint8 *)&buf), 4);
+
+        if (i == 4 && ((uint8 *)&buf)[0] == 'p' && ((uint8 *)&buf)[1] == 'i' && ((uint8 *)&buf)[2] == 'n' && ((uint8 *)&buf)[3] == 'g')
+        {
+            fprintf(1, "%d: received ping\n", getpid());
+            write(c2p[1], "pong", 4);
+        }
+
+        close(c2p[1]);
+        close(p2c[0]);
     }
 
     exit(0);
